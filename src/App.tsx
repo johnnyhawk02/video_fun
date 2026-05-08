@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, FolderOpen, Sun, Aperture, Droplet, Repeat, Eraser, Bone, FlipHorizontal, FlipVertical, Volume2, Waves, Github } from 'lucide-react';
+import { Play, Pause, FolderOpen, Sun, Aperture, Droplet, Repeat, Eraser, Bone, FlipHorizontal, FlipVertical, Volume2, Github } from 'lucide-react';
 
 export default function App() {
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
@@ -11,13 +11,7 @@ export default function App() {
   const [xray, setXray] = useState(false);
   const [mirror, setMirror] = useState<'none' | 'v' | 'h'>('none');
   const [volume, setVolume] = useState(100);
-  const [reverb, setReverb] = useState(0);
   
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const hasInitAudioRef = useRef(false);
-  const dryGainRef = useRef<GainNode | null>(null);
-  const wetGainRef = useRef<GainNode | null>(null);
-
   const videoRef2 = useRef<HTMLVideoElement>(null);
   const [loopA, setLoopA] = useState<number | null>(null);
   const [loopB, setLoopB] = useState<number | null>(null);
@@ -27,6 +21,27 @@ export default function App() {
   const reqRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const hasInitAudioRef = useRef(false);
+
+  const initAudioContext = () => {
+    if (hasInitAudioRef.current || !videoRef.current) return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      
+      const ctx = new AudioContextClass();
+      audioCtxRef.current = ctx;
+
+      const source = ctx.createMediaElementSource(videoRef.current);
+      source.connect(ctx.destination);
+
+      hasInitAudioRef.current = true;
+    } catch (e) {
+      console.error("Audio Context Init Failed", e);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -103,80 +118,24 @@ export default function App() {
     }
   }, [mirror]);
 
-  const initAudioContext = () => {
-    if (hasInitAudioRef.current || !videoRef.current) return;
-    try {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) return;
-      
-      const ctx = new AudioContextClass();
-      audioCtxRef.current = ctx;
-
-      const source = ctx.createMediaElementSource(videoRef.current);
-      const convolver = ctx.createConvolver();
-      const dryGain = ctx.createGain();
-      const wetGain = ctx.createGain();
-
-      dryGainRef.current = dryGain;
-      wetGainRef.current = wetGain;
-
-      // Generate algorithmic impulse response
-      const length = ctx.sampleRate * 2.5; 
-      const impulse = ctx.createBuffer(2, length, ctx.sampleRate);
-      for (let c = 0; c < 2; c++) {
-        const channelData = impulse.getChannelData(c);
-        for (let i = 0; i < length; i++) {
-          channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 3.0);
-        }
-      }
-      convolver.buffer = impulse;
-
-      source.connect(dryGain);
-      dryGain.connect(ctx.destination);
-
-      source.connect(convolver);
-      convolver.connect(wetGain);
-      wetGain.connect(ctx.destination);
-
-      hasInitAudioRef.current = true;
-      
-      if (videoRef.current) videoRef.current.volume = volume / 100;
-      const normalizedReverb = reverb / 100;
-      wetGainRef.current.gain.value = normalizedReverb * 1.5;
-      dryGainRef.current.gain.value = 1 - (normalizedReverb * 0.3);
-
-    } catch (e) {
-      console.error("Audio Context Init Failed", e);
-    }
-  };
-
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.volume = volume / 100;
-    }
+    if (videoRef.current) videoRef.current.volume = volume / 100;
   }, [volume, videoSrc]);
-
-  useEffect(() => {
-    if (!dryGainRef.current || !wetGainRef.current) return;
-    const normalized = reverb / 100;
-    wetGainRef.current.gain.value = normalized * 1.5;
-    dryGainRef.current.gain.value = 1 - (normalized * 0.3);
-  }, [reverb]);
 
   // Sync native playback state
   useEffect(() => {
-    const videos = [videoRef.current, videoRef2.current].filter(Boolean) as HTMLVideoElement[];
+    const mediaElements = [videoRef.current, videoRef2.current].filter(Boolean) as HTMLMediaElement[];
 
-    videos.forEach(video => {
-      video.preservesPitch = false;
-      (video as any).webkitPreservesPitch = false;
-      (video as any).mozPreservesPitch = false;
+    mediaElements.forEach(media => {
+      media.preservesPitch = false;
+      (media as any).webkitPreservesPitch = false;
+      (media as any).mozPreservesPitch = false;
       
       if (isPlaying) {
-        video.playbackRate = speed;
-        video.play().catch(e => console.error("Play failed:", e));
+        media.playbackRate = speed;
+        media.play().catch(e => console.error("Play failed:", e));
       } else {
-        video.pause();
+        media.pause();
       }
     });
   }, [isPlaying, speed, mirror]);
@@ -270,7 +229,7 @@ export default function App() {
             playsInline
           />
         )}
-        
+
         {/* Play Position Slider container placed explicitly over the video bottom */}
         <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10" onClick={(e) => e.stopPropagation()}>
           <input 
@@ -371,17 +330,6 @@ export default function App() {
                   max="100" 
                   value={volume}
                   onChange={(e) => setVolume(parseInt(e.target.value))}
-                  className="w-full h-8 bg-gray-600 rounded-full appearance-none cursor-pointer"
-                />
-              </div>
-              <div className="flex items-center gap-4">
-                <Waves className="text-cyan-400 shrink-0" size={32} />
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="100" 
-                  value={reverb}
-                  onChange={(e) => setReverb(parseInt(e.target.value))}
                   className="w-full h-8 bg-gray-600 rounded-full appearance-none cursor-pointer"
                 />
               </div>
