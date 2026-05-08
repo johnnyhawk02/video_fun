@@ -200,20 +200,6 @@ export default function App() {
   if (!videoSrc) {
     return (
       <div className="min-h-screen bg-pink-100 flex flex-col items-center justify-center p-8 relative">
-        {import.meta.env.DEV && (
-          <div className="absolute top-4 right-4 z-50">
-            <button 
-              onClick={() => {
-                alert("Saving to GitHub repository for user: johnnyhawk02...");
-                window.open("https://github.com/johnnyhawk02", "_blank");
-              }}
-              className="bg-gray-800 p-4 pr-6 rounded-full text-white shadow-lg active:scale-90 transition-transform flex items-center justify-center gap-3"
-            >
-              <Github size={32} />
-              <span className="font-bold text-lg hidden sm:inline">Save</span>
-            </button>
-          </div>
-        )}
         <div className="bg-white rounded-3xl p-12 shadow-2xl text-center max-w-lg w-full flex flex-col items-center gap-8">
           <div className="w-32 h-32 bg-pink-500 rounded-full flex items-center justify-center shadow-lg text-white mb-4 animate-bounce">
             <Play size={64} fill="currentColor" />
@@ -243,8 +229,8 @@ export default function App() {
 
   return (
     <div className="fixed inset-0 bg-gray-900 flex flex-col overflow-hidden overscroll-none text-white font-sans select-none">
-      {/* Top Bar - Hidden file input trigger and GitHub save */}
-      <div className="absolute top-4 left-4 z-50 flex gap-4">
+      {/* Top Bar - Hidden file input trigger */}
+      <div className="absolute top-4 left-4 z-50">
         <button 
           onClick={() => fileInputRef.current?.click()}
           className="bg-white/20 backdrop-blur-md p-4 rounded-full text-white shadow-lg active:scale-90 transition-transform"
@@ -258,18 +244,6 @@ export default function App() {
           ref={fileInputRef}
           onChange={handleFileChange}
         />
-        {import.meta.env.DEV && (
-          <button 
-            onClick={() => {
-              alert("Saving to GitHub repository for user: johnnyhawk02...");
-              window.open("https://github.com/johnnyhawk02", "_blank");
-            }}
-            className="bg-black/50 backdrop-blur-md p-4 pr-6 rounded-full text-white shadow-lg active:scale-90 transition-transform flex items-center justify-center gap-3"
-          >
-            <Github size={32} />
-            <span className="font-bold text-lg hidden sm:inline">Save</span>
-          </button>
-        )}
       </div>
 
       {/* Main Video Area */}
