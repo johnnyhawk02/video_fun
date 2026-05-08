@@ -23,34 +23,40 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const hasInitAudioRef = useRef(false);
+  const audioBufferRef = useRef<AudioBuffer | null>(null);
+  const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
 
-  const initAudioContext = () => {
-    if (hasInitAudioRef.current || !videoRef.current) return;
-    try {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) return;
-      
-      const ctx = new AudioContextClass();
-      audioCtxRef.current = ctx;
-
-      const source = ctx.createMediaElementSource(videoRef.current);
-      source.connect(ctx.destination);
-
-      hasInitAudioRef.current = true;
-    } catch (e) {
-      console.error("Audio Context Init Failed", e);
+  const startAudioAt = (time: number, targetSpeed: number = speed) => {
+    if (!audioCtxRef.current || !audioBufferRef.current || !isPlaying) return;
+    
+    if (audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume();
     }
+
+    if (sourceNodeRef.current) {
+      try { sourceNodeRef.current.stop(); } catch(e) {}
+      sourceNodeRef.current.disconnect();
+    }
+    
+    const source = audioCtxRef.current.createBufferSource();
+    source.buffer = audioBufferRef.current;
+    source.playbackRate.value = targetSpeed;
+    
+    if (!gainNodeRef.current) {
+      gainNodeRef.current = audioCtxRef.current.createGain();
+      gainNodeRef.current.connect(audioCtxRef.current.destination);
+    }
+    gainNodeRef.current.gain.value = volume / 100;
+    
+    source.connect(gainNodeRef.current);
+    source.start(0, Math.max(0, time));
+    sourceNodeRef.current = source;
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      initAudioContext();
-      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume();
-      }
-      
       if (videoSrc) URL.revokeObjectURL(videoSrc);
       const url = URL.createObjectURL(file);
       setVideoSrc(url);
@@ -58,11 +64,20 @@ export default function App() {
       setSpeed(1);
       setLoopA(null);
       setLoopB(null);
-      setTimeout(() => {
-        if (videoRef.current) {
-          (videoRef.current as any).preservesPitch = false;
-        }
-      }, 0);
+
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContextClass) return;
+        const ctx = new AudioContextClass();
+        audioCtxRef.current = ctx;
+        
+        const arrayBuffer = await file.arrayBuffer();
+        ctx.decodeAudioData(arrayBuffer, (buffer) => {
+           audioBufferRef.current = buffer;
+        }, err => console.error("Decode err:", err));
+      } catch (err) {
+        console.error("Audio Context Init Failed", err);
+      }
     }
   };
 
@@ -81,6 +96,7 @@ export default function App() {
       if (isPlaying && speed > 0 && loopB !== null) {
         if (vid.currentTime >= endBound) {
           vid.currentTime = startBound;
+          startAudioAt(startBound);
         }
       }
 
@@ -119,17 +135,33 @@ export default function App() {
   }, [mirror]);
 
   useEffect(() => {
-    if (videoRef.current) videoRef.current.volume = volume / 100;
-  }, [volume, videoSrc]);
+    if (gainNodeRef.current) gainNodeRef.current.gain.value = volume / 100;
+  }, [volume]);
+
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.playbackRate = speed;
+    if (videoRef2.current) videoRef2.current.playbackRate = speed;
+    if (sourceNodeRef.current) {
+      sourceNodeRef.current.playbackRate.value = speed;
+    }
+  }, [speed]);
 
   // Sync native playback state
   useEffect(() => {
     const mediaElements = [videoRef.current, videoRef2.current].filter(Boolean) as HTMLMediaElement[];
 
+    if (isPlaying) {
+       startAudioAt(videoRef.current?.currentTime || 0);
+    } else {
+       if (sourceNodeRef.current) {
+         try { sourceNodeRef.current.stop(); } catch(e) {}
+         sourceNodeRef.current.disconnect();
+         sourceNodeRef.current = null;
+       }
+    }
+
     mediaElements.forEach(media => {
-      media.preservesPitch = false;
-      (media as any).webkitPreservesPitch = false;
-      (media as any).mozPreservesPitch = false;
+      media.muted = true; // Use WebAudio instead
       
       if (isPlaying) {
         media.playbackRate = speed;
@@ -138,13 +170,9 @@ export default function App() {
         media.pause();
       }
     });
-  }, [isPlaying, speed, mirror]);
+  }, [isPlaying, mirror]);
 
   const togglePlay = () => {
-    initAudioContext();
-    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume();
-    }
     setIsPlaying(!isPlaying);
   };
 
@@ -153,6 +181,7 @@ export default function App() {
       // loop natively for forward play
       videoRef.current.currentTime = 0;
       videoRef.current.play().catch(e => console.error(e));
+      startAudioAt(0);
     }
   };
 
@@ -246,6 +275,7 @@ export default function App() {
                   if (videoRef2.current) {
                     videoRef2.current.currentTime = targetTime;
                   }
+                  if (isPlaying) startAudioAt(targetTime);
                }
             }}
             className="pos-track w-full h-12 rounded-full cursor-pointer accent-pink-500 touch-pan-x"
