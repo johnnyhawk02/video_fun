@@ -168,9 +168,9 @@ export default function App() {
     const videos = [videoRef.current, videoRef2.current].filter(Boolean) as HTMLVideoElement[];
 
     videos.forEach(video => {
-      if ('preservesPitch' in video) {
-        (video as any).preservesPitch = false;
-      }
+      video.preservesPitch = false;
+      (video as any).webkitPreservesPitch = false;
+      (video as any).mozPreservesPitch = false;
       
       if (isPlaying) {
         video.playbackRate = speed;
