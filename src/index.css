@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@layer utilities {
+  input[type="range"] {
+    @apply appearance-none bg-transparent;
+  }
+  
+  input[type="range"]::-webkit-slider-thumb {
+    @apply appearance-none w-12 h-12 bg-white rounded-full shadow-lg border-4 border-pink-500 cursor-pointer;
+    margin-top: -8px; /* Depending on track height */
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    @apply w-12 h-12 bg-white rounded-full shadow-lg border-4 border-pink-500 cursor-pointer;
+  }
+
+  input[type="range"]::-webkit-slider-runnable-track {
+    @apply w-full h-8 bg-gray-600 rounded-full cursor-pointer;
+  }
+
+  /* Specific tracks */
+  input[type="range"].pos-track::-webkit-slider-runnable-track {
+    background: linear-gradient(to right, #ec4899 var(--progress, 0%), #4b5563 var(--progress, 0%));
+    height: 1.5rem;
+  }
+  
+  input[type="range"].pos-track::-webkit-slider-thumb {
+    width: 2rem;
+    height: 2rem;
+    margin-top: -0.25rem;
+  }
+
+  input[type="range"].hue-track::-webkit-slider-runnable-track {
+    background: linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%);
+  }
+
+  input[type="range"].sat-track::-webkit-slider-runnable-track {
+    background: linear-gradient(to right, #808080, #3b82f6);
+  }
+
+  input[type="range"].bright-track::-webkit-slider-runnable-track {
+    background: linear-gradient(to right, #1f2937, #ffffff);
+  }
+  
+  /* Reset background for our custom tracks so utility classes don't conflict, wait we just added classes to them in App.tsx */
+}

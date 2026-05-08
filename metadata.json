@@ -1,0 +1,6 @@
+{
+  "name": "Video Replay Tool",
+  "description": "An offline-capable iPad web app for looping and replaying favorite videos with custom speed and color tweaks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
