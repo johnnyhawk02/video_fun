@@ -52,8 +52,8 @@ export default function App() {
       const vid = videoRef.current;
       
       // Sync secondary video
-      if (videoRef2.current) {
-         if (Math.abs(videoRef2.current.currentTime - vid.currentTime) > 0.05) {
+      if (videoRef2.current && !videoRef2.current.seeking) {
+         if (Math.abs(videoRef2.current.currentTime - vid.currentTime) > 0.1) {
             videoRef2.current.currentTime = vid.currentTime;
          }
       }
@@ -96,13 +96,17 @@ export default function App() {
     const mediaElements = [videoRef.current, videoRef2.current].filter(Boolean) as HTMLMediaElement[];
 
     mediaElements.forEach(media => {
-      media.muted = false; // Restore native audio
+      media.muted = media === videoRef2.current; // Mute secondary video
       media.preservesPitch = false;
       (media as any).webkitPreservesPitch = false;
       (media as any).mozPreservesPitch = false;
       
       if (isPlaying) {
         media.playbackRate = speed;
+        // ensure sync
+        if (media === videoRef2.current && videoRef.current) {
+           media.currentTime = videoRef.current.currentTime;
+        }
         media.play().catch(e => console.error("Play failed:", e));
       } else {
         media.pause();
