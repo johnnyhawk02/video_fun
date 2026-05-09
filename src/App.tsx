@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, FolderOpen, Sun, Aperture, Droplet, Bone, FlipHorizontal, FlipVertical, Volume2 } from 'lucide-react';
+import { Play, Pause, FolderOpen, Aperture, Bone, FlipHorizontal, FlipVertical, Volume2 } from 'lucide-react';
 
 const LandscapeWarning = () => (
   <div className="hidden [@media(hover:none)_and_(orientation:landscape)]:flex max-[800px]:landscape:flex fixed inset-0 z-[9999] bg-gray-900 flex-col items-center justify-center p-8 text-center overscroll-none touch-none">
@@ -19,8 +19,6 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [hue, setHue] = useState(0);
-  const [saturation, setSaturation] = useState(100);
-  const [brightness, setBrightness] = useState(100);
   const [xray, setXray] = useState(false);
   const [mirror, setMirror] = useState<'none' | 'v' | 'h'>('none');
   const [volume, setVolume] = useState(100);
@@ -153,7 +151,7 @@ export default function App() {
     );
   }
 
-  const filters = `hue-rotate(${hue}deg) saturate(${saturation}%) brightness(${brightness}%) ${xray ? 'invert(100%) grayscale(100%) contrast(200%)' : ''}`;
+  const filters = `hue-rotate(${hue}deg) ${xray ? 'invert(100%) grayscale(100%) contrast(200%)' : ''}`;
 
   return (
     <div className="fixed inset-0 bg-gray-900 flex flex-col overflow-hidden overscroll-none text-white font-sans select-none">
@@ -287,30 +285,6 @@ export default function App() {
                   value={hue}
                   onChange={(e) => setHue(parseInt(e.target.value))}
                   className="hue-track w-full h-6 rounded-full cursor-pointer"
-                />
-              </div>
-
-              <div className="flex items-center gap-4">
-                <Droplet className="text-blue-400 shrink-0" size={24} />
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="200" 
-                  value={saturation}
-                  onChange={(e) => setSaturation(parseInt(e.target.value))}
-                  className="sat-track w-full h-6 rounded-full cursor-pointer"
-                />
-              </div>
-
-              <div className="flex items-center gap-4">
-                <Sun className="text-orange-400 shrink-0" size={24} />
-                <input 
-                  type="range" 
-                  min="50" 
-                  max="150" 
-                  value={brightness}
-                  onChange={(e) => setBrightness(parseInt(e.target.value))}
-                  className="bright-track w-full h-6 rounded-full cursor-pointer"
                 />
               </div>
 
