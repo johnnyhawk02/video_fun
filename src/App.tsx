@@ -236,26 +236,21 @@ export default function App() {
       <div className="bg-gray-800 rounded-t-3xl p-4 pb-8 mt-2 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] flex flex-col gap-4 z-10 w-full md:p-6 relative max-h-[50vh] overflow-y-auto">
         <div className="max-w-4xl w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
           <div className="flex flex-col gap-4">
-            {/* Speed Slider */}
+            {/* Speed Buttons */}
             <div className="flex flex-col gap-2 bg-gray-700/50 p-4 rounded-2xl">
-              <div className="flex justify-between items-center text-lg font-bold">
-                <span>Speed: {speed.toFixed(2)}X</span>
+              <div className="flex justify-between items-center text-lg font-bold mb-1">
+                <span>Speed</span>
               </div>
-              <div className="flex gap-4 items-center">
-                <span className="text-xl font-bold text-blue-400">0</span>
-                <input 
-                  type="range" 
-                  min="0.1" 
-                  max="2" 
-                  step="0.01"
-                  value={speed}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    setSpeed(val);
-                  }}
-                  className="w-full h-6 bg-gray-600 rounded-full appearance-none cursor-pointer accent-pink-500"
-                />
-                <span className="text-xl font-bold text-pink-400">+2</span>
+              <div className="flex gap-2">
+                {[0.5, 1.0, 1.5, 2.0].map((val) => (
+                  <button
+                    key={val}
+                    onClick={() => setSpeed(val)}
+                    className={`flex-1 py-2 text-sm font-bold rounded-xl active:scale-95 transition-all ${speed === val ? 'bg-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.5)]' : 'bg-gray-600 text-gray-300'}`}
+                  >
+                    {val.toFixed(1)}x
+                  </button>
+                ))}
               </div>
             </div>
 
