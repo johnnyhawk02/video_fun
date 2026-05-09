@@ -18,6 +18,7 @@ export default function App() {
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
+  const [zoom, setZoom] = useState(1);
   const [hue, setHue] = useState(0);
   const [xray, setXray] = useState(false);
   const [mirror, setMirror] = useState<'none' | 'v' | 'h'>('none');
@@ -182,8 +183,12 @@ export default function App() {
         <video 
           ref={videoRef}
           src={videoSrc}
-          className="absolute w-full h-full object-contain cursor-pointer"
-          style={{ filter: filters, clipPath: mirror === 'v' ? 'inset(0 50% 0 0)' : mirror === 'h' ? 'inset(0 0 50% 0)' : 'none' }}
+          className="absolute w-full h-full object-contain cursor-pointer transition-transform duration-300"
+          style={{ 
+            filter: filters, 
+            clipPath: mirror === 'v' ? 'inset(0 50% 0 0)' : mirror === 'h' ? 'inset(0 0 50% 0)' : 'none',
+            transform: `scale(${zoom})`
+          }}
           onEnded={handleVideoEnded}
           playsInline
         />
@@ -192,11 +197,11 @@ export default function App() {
             ref={videoRef2}
             src={videoSrc}
             muted
-            className="absolute w-full h-full object-contain pointer-events-none cursor-pointer"
+            className="absolute w-full h-full object-contain pointer-events-none cursor-pointer transition-transform duration-300"
             style={{ 
               filter: filters, 
               clipPath: mirror === 'v' ? 'inset(0 50% 0 0)' : 'inset(0 0 50% 0)',
-              transform: mirror === 'v' ? 'scaleX(-1)' : 'scaleY(-1)'
+              transform: `scaleX(${mirror === 'v' ? -zoom : zoom}) scaleY(${mirror === 'h' ? -zoom : zoom})`
             }}
             playsInline
           />
@@ -247,6 +252,24 @@ export default function App() {
                     key={val}
                     onClick={() => setSpeed(val)}
                     className={`flex-1 py-2 text-sm font-bold rounded-xl active:scale-95 transition-all ${speed === val ? 'bg-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.5)]' : 'bg-gray-600 text-gray-300'}`}
+                  >
+                    {val.toFixed(1)}x
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Zoom Buttons */}
+            <div className="flex flex-col gap-2 bg-gray-700/50 p-4 rounded-2xl">
+              <div className="flex justify-between items-center text-lg font-bold mb-1">
+                <span>Zoom</span>
+              </div>
+              <div className="flex gap-2">
+                {[1.0, 1.5, 2.0, 3.0].map((val) => (
+                  <button
+                    key={val}
+                    onClick={() => setZoom(val)}
+                    className={`flex-1 py-2 text-sm font-bold rounded-xl active:scale-95 transition-all ${zoom === val ? 'bg-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.5)]' : 'bg-gray-600 text-gray-300'}`}
                   >
                     {val.toFixed(1)}x
                   </button>
