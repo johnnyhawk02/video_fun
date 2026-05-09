@@ -1,5 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, FolderOpen, Sun, Aperture, Droplet, Repeat, Eraser, Bone, FlipHorizontal, FlipVertical, Volume2, Github } from 'lucide-react';
+import { Play, Pause, FolderOpen, Sun, Aperture, Droplet, Bone, FlipHorizontal, FlipVertical, Volume2 } from 'lucide-react';
+
+const LandscapeWarning = () => (
+  <div className="hidden [@media(hover:none)_and_(orientation:landscape)]:flex max-[800px]:landscape:flex fixed inset-0 z-[9999] bg-gray-900 flex-col items-center justify-center p-8 text-center overscroll-none touch-none">
+    <div className="w-24 h-24 mb-8 text-pink-500 animate-pulse">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full rotate-[-90deg]">
+        <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+        <path d="M12 18h.01" />
+      </svg>
+    </div>
+    <h2 className="text-3xl font-bold text-white mb-4">Portrait Mode Only</h2>
+    <p className="text-xl text-gray-400">Please rotate your device to portrait orientation.</p>
+  </div>
+);
 
 export default function App() {
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
@@ -13,8 +26,6 @@ export default function App() {
   const [volume, setVolume] = useState(100);
   
   const videoRef2 = useRef<HTMLVideoElement>(null);
-  const [loopA, setLoopA] = useState<number | null>(null);
-  const [loopB, setLoopB] = useState<number | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressRef = useRef<HTMLInputElement>(null);
@@ -22,62 +33,14 @@ export default function App() {
   const lastTimeRef = useRef<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const audioBufferRef = useRef<AudioBuffer | null>(null);
-  const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
-  const gainNodeRef = useRef<GainNode | null>(null);
-
-  const startAudioAt = (time: number, targetSpeed: number = speed) => {
-    if (!audioCtxRef.current || !audioBufferRef.current || !isPlaying) return;
-    
-    if (audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume();
-    }
-
-    if (sourceNodeRef.current) {
-      try { sourceNodeRef.current.stop(); } catch(e) {}
-      sourceNodeRef.current.disconnect();
-    }
-    
-    const source = audioCtxRef.current.createBufferSource();
-    source.buffer = audioBufferRef.current;
-    source.playbackRate.value = targetSpeed;
-    
-    if (!gainNodeRef.current) {
-      gainNodeRef.current = audioCtxRef.current.createGain();
-      gainNodeRef.current.connect(audioCtxRef.current.destination);
-    }
-    gainNodeRef.current.gain.value = volume / 100;
-    
-    source.connect(gainNodeRef.current);
-    source.start(0, Math.max(0, time));
-    sourceNodeRef.current = source;
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (videoSrc) URL.revokeObjectURL(videoSrc);
       const url = URL.createObjectURL(file);
       setVideoSrc(url);
-      setIsPlaying(true);
+      setIsPlaying(false); // don't auto-play until user clicks
       setSpeed(1);
-      setLoopA(null);
-      setLoopB(null);
-
-      try {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        if (!AudioContextClass) return;
-        const ctx = new AudioContextClass();
-        audioCtxRef.current = ctx;
-        
-        const arrayBuffer = await file.arrayBuffer();
-        ctx.decodeAudioData(arrayBuffer, (buffer) => {
-           audioBufferRef.current = buffer;
-        }, err => console.error("Decode err:", err));
-      } catch (err) {
-        console.error("Audio Context Init Failed", err);
-      }
     }
   };
 
@@ -89,19 +52,6 @@ export default function App() {
     
     if (videoRef.current) {
       const vid = videoRef.current;
-      const startBound = loopA !== null ? loopA : 0;
-      const endBound = loopB !== null ? loopB : (vid.duration || 0);
-
-      // Handle forward native playback looping
-      if (isPlaying && speed > 0 && loopB !== null) {
-        if (vid.currentTime >= endBound) {
-          vid.currentTime = startBound;
-          startAudioAt(startBound);
-        }
-      }
-
-      // Handle negative manual playback & looping
-      // (Removed as requested via smooth 0.1 slider)
       
       // Sync secondary video
       if (videoRef2.current) {
@@ -126,7 +76,7 @@ export default function App() {
     return () => {
       if (reqRef.current) cancelAnimationFrame(reqRef.current);
     };
-  }, [isPlaying, speed, loopA, loopB]);
+  }, [isPlaying, speed]);
 
   useEffect(() => {
     if (mirror !== 'none' && videoRef.current && videoRef2.current) {
@@ -135,33 +85,23 @@ export default function App() {
   }, [mirror]);
 
   useEffect(() => {
-    if (gainNodeRef.current) gainNodeRef.current.gain.value = volume / 100;
+    if (videoRef.current) videoRef.current.volume = volume / 100;
   }, [volume]);
 
   useEffect(() => {
     if (videoRef.current) videoRef.current.playbackRate = speed;
     if (videoRef2.current) videoRef2.current.playbackRate = speed;
-    if (sourceNodeRef.current) {
-      sourceNodeRef.current.playbackRate.value = speed;
-    }
   }, [speed]);
 
   // Sync native playback state
   useEffect(() => {
     const mediaElements = [videoRef.current, videoRef2.current].filter(Boolean) as HTMLMediaElement[];
 
-    if (isPlaying) {
-       startAudioAt(videoRef.current?.currentTime || 0);
-    } else {
-       if (sourceNodeRef.current) {
-         try { sourceNodeRef.current.stop(); } catch(e) {}
-         sourceNodeRef.current.disconnect();
-         sourceNodeRef.current = null;
-       }
-    }
-
     mediaElements.forEach(media => {
-      media.muted = true; // Use WebAudio instead
+      media.muted = false; // Restore native audio
+      media.preservesPitch = false;
+      (media as any).webkitPreservesPitch = false;
+      (media as any).mozPreservesPitch = false;
       
       if (isPlaying) {
         media.playbackRate = speed;
@@ -170,7 +110,7 @@ export default function App() {
         media.pause();
       }
     });
-  }, [isPlaying, mirror]);
+  }, [isPlaying, speed, mirror]);
 
   const togglePlay = () => {
     setIsPlaying(!isPlaying);
@@ -181,13 +121,13 @@ export default function App() {
       // loop natively for forward play
       videoRef.current.currentTime = 0;
       videoRef.current.play().catch(e => console.error(e));
-      startAudioAt(0);
     }
   };
 
   if (!videoSrc) {
     return (
       <div className="min-h-screen bg-pink-100 flex flex-col items-center justify-center p-8 relative">
+        <LandscapeWarning />
         <div className="bg-white rounded-3xl p-12 shadow-2xl text-center max-w-lg w-full flex flex-col items-center gap-8">
           <div className="w-32 h-32 bg-pink-500 rounded-full flex items-center justify-center shadow-lg text-white mb-4 animate-bounce">
             <Play size={64} fill="currentColor" />
@@ -217,6 +157,7 @@ export default function App() {
 
   return (
     <div className="fixed inset-0 bg-gray-900 flex flex-col overflow-hidden overscroll-none text-white font-sans select-none">
+      <LandscapeWarning />
       {/* Top Bar - Hidden file input trigger */}
       <div className="absolute top-4 left-4 z-50">
         <button 
@@ -258,53 +199,48 @@ export default function App() {
             playsInline
           />
         )}
+        {!isPlaying && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/20">
+            <div className="w-24 h-24 bg-pink-500/80 rounded-full flex items-center justify-center text-white shadow-2xl backdrop-blur-sm">
+              <Play size={48} fill="currentColor" className="ml-2" />
+            </div>
+          </div>
+        )}
+      </div>
 
-        {/* Play Position Slider container placed explicitly over the video bottom */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10" onClick={(e) => e.stopPropagation()}>
-          <input 
-            ref={progressRef}
-            type="range" 
-            min="0" 
-            max="100" 
-            step="0.01"
-            defaultValue="0"
-            onInput={(e) => {
-               if (videoRef.current && videoRef.current.duration) {
-                  const targetTime = (parseFloat((e.target as HTMLInputElement).value) / 100) * videoRef.current.duration;
-                  videoRef.current.currentTime = targetTime;
-                  if (videoRef2.current) {
-                    videoRef2.current.currentTime = targetTime;
-                  }
-                  if (isPlaying) startAudioAt(targetTime);
-               }
-            }}
-            className="pos-track w-full h-12 rounded-full cursor-pointer accent-pink-500 touch-pan-x"
-          />
-        </div>
+      {/* Play Position Slider container placed under the video */}
+      <div className="w-full px-6 py-4 bg-gray-900 z-20 relative border-t border-gray-800">
+        <input 
+          ref={progressRef}
+          type="range" 
+          min="0" 
+          max="100" 
+          step="0.01"
+          defaultValue="0"
+          onInput={(e) => {
+             if (videoRef.current && videoRef.current.duration) {
+                const targetTime = (parseFloat((e.target as HTMLInputElement).value) / 100) * videoRef.current.duration;
+                videoRef.current.currentTime = targetTime;
+                if (videoRef2.current) {
+                  videoRef2.current.currentTime = targetTime;
+                }
+             }
+          }}
+          className="pos-track w-full h-12 rounded-full cursor-pointer accent-pink-500 touch-pan-x"
+        />
       </div>
 
       {/* Control Panel */}
-      <div className="bg-gray-800 rounded-t-[3rem] p-6 pb-12 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] flex flex-col gap-6 z-10 w-full md:p-8">
-        
-        {/* Play/Pause Button Area */}
-        <div className="flex justify-center -mt-16 mb-4">
-          <button 
-            onClick={togglePlay}
-            className="w-32 h-32 bg-pink-500 text-white rounded-full flex items-center justify-center shadow-[0_10px_30px_rgba(236,72,153,0.6)] active:scale-90 transition-transform border-4 border-white/20"
-          >
-            {isPlaying ? <Pause size={64} fill="currentColor" /> : <Play size={64} fill="currentColor" className="ml-4" />}
-          </button>
-        </div>
-
-        <div className="max-w-4xl w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-          <div className="flex flex-col gap-6">
+      <div className="bg-gray-800 rounded-t-3xl p-4 pb-8 mt-2 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] flex flex-col gap-4 z-10 w-full md:p-6 relative max-h-[50vh] overflow-y-auto">
+        <div className="max-w-4xl w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+          <div className="flex flex-col gap-4">
             {/* Speed Slider */}
-            <div className="flex flex-col gap-4 bg-gray-700/50 p-6 rounded-3xl">
-              <div className="flex justify-between items-center text-xl font-bold">
+            <div className="flex flex-col gap-2 bg-gray-700/50 p-4 rounded-2xl">
+              <div className="flex justify-between items-center text-lg font-bold">
                 <span>Speed: {speed.toFixed(2)}X</span>
               </div>
               <div className="flex gap-4 items-center">
-                <span className="text-2xl font-bold text-blue-400">0</span>
+                <span className="text-xl font-bold text-blue-400">0</span>
                 <input 
                   type="range" 
                   min="0.1" 
@@ -315,123 +251,91 @@ export default function App() {
                     const val = parseFloat(e.target.value);
                     setSpeed(val);
                   }}
-                  className="w-full h-8 bg-gray-600 rounded-full appearance-none cursor-pointer accent-pink-500"
+                  className="w-full h-6 bg-gray-600 rounded-full appearance-none cursor-pointer accent-pink-500"
                 />
-                <span className="text-2xl font-bold text-pink-400">+2</span>
-              </div>
-            </div>
-
-            {/* AB Loop Points */}
-            <div className="flex flex-col gap-4 bg-gray-700/50 p-6 rounded-3xl">
-              <div className="flex justify-between items-center text-xl font-bold">
-                <span className="flex items-center gap-2"><Repeat size={24}/> Loop Clip</span>
-                {(loopA !== null || loopB !== null) && (
-                  <button onClick={() => { setLoopA(null); setLoopB(null); }} className="text-red-400 p-2 bg-gray-800 rounded-full active:scale-95">
-                    <Eraser size={24} />
-                  </button>
-                )}
-              </div>
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => setLoopA(videoRef.current?.currentTime || 0)}
-                  className={`flex-1 py-4 text-2xl font-bold rounded-2xl active:scale-95 transition-all ${loopA !== null ? 'bg-green-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'bg-gray-600 text-gray-300'}`}
-                >
-                  Set A
-                </button>
-                <button 
-                  onClick={() => setLoopB(videoRef.current?.currentTime || 0)}
-                  className={`flex-1 py-4 text-2xl font-bold rounded-2xl active:scale-95 transition-all ${loopB !== null ? 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-gray-600 text-gray-300'}`}
-                >
-                  Set B
-                </button>
+                <span className="text-xl font-bold text-pink-400">+2</span>
               </div>
             </div>
 
             {/* Audio Controls */}
-            <div className="flex flex-col gap-4 bg-gray-700/50 p-6 rounded-3xl">
-              <div className="flex items-center text-xl font-bold">
-                <span>Audio</span>
-              </div>
+            <div className="flex flex-col gap-2 bg-gray-700/50 p-4 rounded-2xl">
               <div className="flex items-center gap-4">
-                <Volume2 className="text-white shrink-0" size={32} />
+                <Volume2 className="text-white shrink-0" size={24} />
                 <input 
                   type="range" 
                   min="0" 
                   max="100" 
                   value={volume}
                   onChange={(e) => setVolume(parseInt(e.target.value))}
-                  className="w-full h-8 bg-gray-600 rounded-full appearance-none cursor-pointer"
+                  className="w-full h-6 bg-gray-600 rounded-full appearance-none cursor-pointer"
                 />
               </div>
             </div>
           </div>
 
           {/* Right Column */}
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4">
             {/* Color Sliders */}
-            <div className="flex flex-col gap-5 bg-gray-700/50 p-6 rounded-3xl">
+            <div className="flex flex-col gap-3 bg-gray-700/50 p-4 rounded-2xl">
               
               <div className="flex items-center gap-4">
-                <Aperture className="text-yellow-400 shrink-0" size={32} />
+                <Aperture className="text-yellow-400 shrink-0" size={24} />
                 <input 
                   type="range" 
                   min="0" 
                   max="360" 
                   value={hue}
                   onChange={(e) => setHue(parseInt(e.target.value))}
-                  className="hue-track w-full h-8 rounded-full cursor-pointer"
+                  className="hue-track w-full h-6 rounded-full cursor-pointer"
                 />
               </div>
 
               <div className="flex items-center gap-4">
-                <Droplet className="text-blue-400 shrink-0" size={32} />
+                <Droplet className="text-blue-400 shrink-0" size={24} />
                 <input 
                   type="range" 
                   min="0" 
                   max="200" 
                   value={saturation}
                   onChange={(e) => setSaturation(parseInt(e.target.value))}
-                  className="sat-track w-full h-8 rounded-full cursor-pointer"
+                  className="sat-track w-full h-6 rounded-full cursor-pointer"
                 />
               </div>
 
               <div className="flex items-center gap-4">
-                <Sun className="text-orange-400 shrink-0" size={32} />
+                <Sun className="text-orange-400 shrink-0" size={24} />
                 <input 
                   type="range" 
                   min="50" 
                   max="150" 
                   value={brightness}
                   onChange={(e) => setBrightness(parseInt(e.target.value))}
-                  className="bright-track w-full h-8 rounded-full cursor-pointer"
+                  className="bright-track w-full h-6 rounded-full cursor-pointer"
                 />
               </div>
 
             </div>
 
             {/* Fun FX */}
-            <div className="flex flex-col gap-4 bg-gray-700/50 p-6 rounded-3xl">
-              <div className="flex items-center text-xl font-bold">
-                <span>Fun Effects</span>
-              </div>
+            <div className="flex flex-col gap-2 bg-gray-700/50 p-4 rounded-2xl">
               <div className="flex gap-2">
                 <button 
                   onClick={() => setXray(!xray)}
-                  className={`flex-1 py-3 text-sm md:text-lg font-bold flex flex-col items-center justify-center gap-1 rounded-2xl active:scale-95 transition-all ${xray ? 'bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.5)]' : 'bg-gray-600 text-gray-300'}`}
+                  className={`flex-1 py-2 text-xs md:text-sm font-bold flex flex-col items-center justify-center gap-1 rounded-xl active:scale-95 transition-all ${xray ? 'bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.5)]' : 'bg-gray-600 text-gray-300'}`}
                 >
-                  <Bone size={24} /> X-Ray
+                  <Bone size={20} /> X-Ray
                 </button>
                 <button 
                   onClick={() => setMirror(mirror === 'v' ? 'none' : 'v')}
-                  className={`flex-1 py-3 text-sm md:text-lg font-bold flex flex-col items-center justify-center gap-1 rounded-2xl active:scale-95 transition-all ${mirror === 'v' ? 'bg-teal-500 text-white shadow-[0_0_15px_rgba(20,184,166,0.5)]' : 'bg-gray-600 text-gray-300'}`}
+                  className={`flex-1 py-2 text-xs md:text-sm font-bold flex flex-col items-center justify-center gap-1 rounded-xl active:scale-95 transition-all ${mirror === 'v' ? 'bg-teal-500 text-white shadow-[0_0_15px_rgba(20,184,166,0.5)]' : 'bg-gray-600 text-gray-300'}`}
                 >
-                  <FlipHorizontal size={24} /> Mirror V
+                  <FlipHorizontal size={20} /> Mirror V
                 </button>
                 <button 
                   onClick={() => setMirror(mirror === 'h' ? 'none' : 'h')}
-                  className={`flex-1 py-3 text-sm md:text-lg font-bold flex flex-col items-center justify-center gap-1 rounded-2xl active:scale-95 transition-all ${mirror === 'h' ? 'bg-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]' : 'bg-gray-600 text-gray-300'}`}
+                  className={`flex-1 py-2 text-xs md:text-sm font-bold flex flex-col items-center justify-center gap-1 rounded-xl active:scale-95 transition-all ${mirror === 'h' ? 'bg-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]' : 'bg-gray-600 text-gray-300'}`}
                 >
-                  <FlipVertical size={24} /> Mirror H
+                  <FlipVertical size={20} /> Mirror H
                 </button>
               </div>
             </div>
