@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, FolderOpen, Aperture, Bone, FlipHorizontal, FlipVertical, Volume2 } from 'lucide-react';
+import { Play, Pause, FolderOpen, Aperture, Bone, FlipHorizontal, FlipVertical, Volume2, Activity } from 'lucide-react';
+import VisualSynth from './VisualSynth';
 
 const LandscapeWarning = () => (
   <div className="hidden [@media(hover:none)_and_(orientation:landscape)]:flex max-[800px]:landscape:flex fixed inset-0 z-[9999] bg-gray-900 flex-col items-center justify-center p-8 text-center overscroll-none touch-none">
@@ -23,8 +24,16 @@ export default function App() {
   const [xray, setXray] = useState(false);
   const [mirror, setMirror] = useState<'none' | 'v' | 'h'>('none');
   const [volume, setVolume] = useState(100);
+  const [synthMode, setSynthMode] = useState(false);
+  const [synthBrightness, setSynthBrightness] = useState(1);
+  const [synthLightBrightness, setSynthLightBrightness] = useState(1);
+  const [synthRoughness, setSynthRoughness] = useState(0.2);
+  const [synthMetalness, setSynthMetalness] = useState(0.8);
   
   const videoRef2 = useRef<HTMLVideoElement>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressRef = useRef<HTMLInputElement>(null);
@@ -114,6 +123,34 @@ export default function App() {
       }
     });
   }, [isPlaying, speed, mirror]);
+
+  const toggleSynth = () => {
+    if (!synthMode) {
+      if (!audioCtxRef.current) {
+        try {
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioContextClass) {
+            const ctx = new AudioContextClass();
+            audioCtxRef.current = ctx;
+            analyserRef.current = ctx.createAnalyser();
+            analyserRef.current.fftSize = 256;
+            
+            if (videoRef.current) {
+              // Creating media element source mutes original unless passed to destination
+              sourceRef.current = ctx.createMediaElementSource(videoRef.current);
+              sourceRef.current.connect(analyserRef.current);
+              analyserRef.current.connect(ctx.destination);
+            }
+          }
+        } catch (e) {
+          console.error("Audio API init failed", e);
+        }
+      } else if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
+    }
+    setSynthMode(!synthMode);
+  };
 
   const togglePlay = () => {
     setIsPlaying(!isPlaying);
@@ -207,12 +244,21 @@ export default function App() {
           />
         )}
         {!isPlaying && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/20">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/20 z-10">
             <div className="w-24 h-24 bg-pink-500/80 rounded-full flex items-center justify-center text-white shadow-2xl backdrop-blur-sm">
               <Play size={48} fill="currentColor" className="ml-2" />
             </div>
           </div>
         )}
+
+        {synthMode && <VisualSynth 
+          analyser={analyserRef.current} 
+          videoElement={videoRef.current} 
+          brightness={synthBrightness}
+          lightBrightness={synthLightBrightness}
+          roughness={synthRoughness}
+          metalness={synthMetalness}
+        />}
       </div>
 
       {/* Play Position Slider container placed under the video */}
@@ -316,6 +362,12 @@ export default function App() {
             <div className="flex flex-col gap-2 bg-gray-700/50 p-4 rounded-2xl">
               <div className="flex gap-2">
                 <button 
+                  onClick={toggleSynth}
+                  className={`flex-1 py-2 text-xs md:text-sm font-bold flex flex-col items-center justify-center gap-1 rounded-xl active:scale-95 transition-all ${synthMode ? 'bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-gray-600 text-gray-300'}`}
+                >
+                  <Activity size={20} /> Synth
+                </button>
+                <button 
                   onClick={() => setXray(!xray)}
                   className={`flex-1 py-2 text-xs md:text-sm font-bold flex flex-col items-center justify-center gap-1 rounded-xl active:scale-95 transition-all ${xray ? 'bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.5)]' : 'bg-gray-600 text-gray-300'}`}
                 >
@@ -335,6 +387,66 @@ export default function App() {
                 </button>
               </div>
             </div>
+
+            {synthMode && (
+              <div className="flex flex-col gap-3 bg-gray-700/50 p-4 rounded-2xl border border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
+                <div className="flex justify-between items-center text-sm font-bold text-indigo-300 mb-1">
+                  <span>Synth Controls</span>
+                </div>
+                
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Sphere Brightness</span>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="3" 
+                    step="0.1"
+                    value={synthBrightness}
+                    onChange={(e) => setSynthBrightness(parseFloat(e.target.value))}
+                    className="w-full h-4 bg-gray-600 rounded-full appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+                
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Light Brightness</span>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="3" 
+                    step="0.1"
+                    value={synthLightBrightness}
+                    onChange={(e) => setSynthLightBrightness(parseFloat(e.target.value))}
+                    className="w-full h-4 bg-gray-600 rounded-full appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+                
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Metalic</span>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="1" 
+                    step="0.05"
+                    value={synthMetalness}
+                    onChange={(e) => setSynthMetalness(parseFloat(e.target.value))}
+                    className="w-full h-4 bg-gray-600 rounded-full appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+                
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Gloss / Roughness</span>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="1" 
+                    step="0.05"
+                    value={synthRoughness}
+                    onChange={(e) => setSynthRoughness(parseFloat(e.target.value))}
+                    className="w-full h-4 bg-gray-600 rounded-full appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
